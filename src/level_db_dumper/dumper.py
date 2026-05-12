@@ -85,7 +85,7 @@ def _read_block(file_data: bytes, handle: tuple[int, int]) -> bytes | None:
             import snappy  # type: ignore
         except Exception:
             warnings.warn(
-                "Encountered snappy-compressed LevelDB block but Python-Snappy is not installed.",
+                "Encountered snappy-compressed LevelDB block but python-snappy is not installed. Install it with: pip install python-snappy",
                 RuntimeWarning,
                 stacklevel=2,
             )
