@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import struct
+import warnings
 from pathlib import Path
 
 MAGIC = 0xDB4775248B80FB57
@@ -83,6 +84,11 @@ def _read_block(file_data: bytes, handle: tuple[int, int]) -> bytes | None:
         try:
             import snappy  # type: ignore
         except Exception:
+            warnings.warn(
+                "Encountered snappy-compressed LevelDB block but python-snappy is not installed.",
+                RuntimeWarning,
+                stacklevel=2,
+            )
             return None
         try:
             return snappy.decompress(block)

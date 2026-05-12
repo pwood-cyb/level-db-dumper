@@ -4,6 +4,11 @@ from level_db_dumper.formats import serialize
 
 
 class FormatSerializationTests(unittest.TestCase):
+    def test_empty_data(self) -> None:
+        self.assertEqual(serialize({}, "yaml"), "")
+        self.assertEqual(serialize({}, "toml"), "")
+        self.assertIn("{}", serialize({}, "json"))
+
     def test_all_supported_formats(self) -> None:
         data = {"hello": "wörld"}
 
@@ -18,3 +23,15 @@ class FormatSerializationTests(unittest.TestCase):
         self.assertIn("<value>wörld</value>", xml_output)
         self.assertEqual(yaml_output.strip(), '"hello": "wörld"')
         self.assertEqual(toml_output.strip(), '"hello" = "wörld"')
+
+    def test_special_characters_are_escaped(self) -> None:
+        data = {'k"ey': "line1\nline2\\x"}
+        yaml_output = serialize(data, "yaml")
+        toml_output = serialize(data, "toml")
+
+        self.assertIn('"k\\"ey": "line1\\nline2\\\\x"', yaml_output)
+        self.assertIn('"k\\"ey" = "line1\\nline2\\\\x"', toml_output)
+
+    def test_unsupported_format_error(self) -> None:
+        with self.assertRaises(ValueError):
+            serialize({}, "ini")

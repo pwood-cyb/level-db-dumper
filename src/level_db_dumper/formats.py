@@ -5,8 +5,7 @@ from xml.sax.saxutils import escape
 
 
 def _escape_yaml_toml(value: str) -> str:
-    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
-    return f'"{escaped}"'
+    return json.dumps(value, ensure_ascii=False)
 
 
 def to_json(data: dict[str, str]) -> str:
@@ -38,4 +37,8 @@ def serialize(data: dict[str, str], output_format: str) -> str:
         "yaml": to_yaml,
         "toml": to_toml,
     }
-    return formatters[output_format](data)
+    try:
+        formatter = formatters[output_format]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported format: {output_format}") from exc
+    return formatter(data)
