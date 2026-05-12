@@ -1,4 +1,5 @@
 import unittest
+import tomllib
 
 from level_db_dumper.formats import serialize
 
@@ -31,6 +32,7 @@ class FormatSerializationTests(unittest.TestCase):
 
         self.assertIn('"k\\"ey": "line1\\nline2\\\\x"', yaml_output)
         self.assertIn('"k\\"ey" = "line1\\nline2\\\\x"', toml_output)
+        self.assertEqual(tomllib.loads(toml_output)['k"ey'], "line1\nline2\\x")
 
     def test_unsupported_format_error(self) -> None:
         with self.assertRaises(ValueError):

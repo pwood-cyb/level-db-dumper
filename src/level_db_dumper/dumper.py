@@ -85,7 +85,7 @@ def _read_block(file_data: bytes, handle: tuple[int, int]) -> bytes | None:
             import snappy  # type: ignore
         except Exception:
             warnings.warn(
-                "Encountered snappy-compressed LevelDB block but python-snappy is not installed.",
+                "Encountered snappy-compressed LevelDB block but Python-Snappy is not installed.",
                 RuntimeWarning,
                 stacklevel=2,
             )
@@ -161,7 +161,6 @@ def dump_directory(directory: str | Path) -> dict[str, str]:
     for ldb_file in sorted(base.rglob("*.ldb")):
         file_pairs = _parse_ldb_file(ldb_file)
         for key, value in file_pairs.items():
-            if key not in pairs:
-                pairs[key] = value
+            pairs[key] = value
 
     return {_to_text(key): _to_text(value) for key, value in sorted(pairs.items())}
