@@ -12,3 +12,6 @@ class DumperTextConversionTests(unittest.TestCase):
 
     def test_escapes_binary_controls(self) -> None:
         self.assertEqual(_to_text(b"\x00\n\x00\x00\x03"), "\\x00\\n\\x00\\x00\\x03")
+
+    def test_utf8_with_many_controls_falls_back_to_binary_escape(self) -> None:
+        self.assertEqual(_to_text(b"\x01ok\x02"), "\\x01ok\\x02")

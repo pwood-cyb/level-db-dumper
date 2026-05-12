@@ -5,6 +5,8 @@ import warnings
 from pathlib import Path
 
 MAGIC = 0xDB4775248B80FB57
+UTF16_NULL_RATIO_THRESHOLD = 0.2
+PRINTABLE_RATIO_THRESHOLD = 0.7
 
 
 def _escape_controls(text: str) -> str:
@@ -32,9 +34,9 @@ def _is_mostly_printable(text: str) -> bool:
     printable_count = 0
     for char in text:
         code = ord(char)
-        if char in {"\n", "\r", "\t"} or code >= 32 and code != 127:
+        if char in {"\n", "\r", "\t"} or (code >= 32 and code != 127):
             printable_count += 1
-    return printable_count / len(text) >= 0.7
+    return printable_count / len(text) >= PRINTABLE_RATIO_THRESHOLD
 
 
 def _escape_binary(raw: bytes) -> str:
@@ -75,7 +77,7 @@ def _to_text(raw: bytes) -> str:
         return ""
 
     null_ratio = raw.count(0) / len(raw)
-    if len(raw) % 2 == 0 and null_ratio >= 0.2:
+    if len(raw) % 2 == 0 and null_ratio >= UTF16_NULL_RATIO_THRESHOLD:
         for encoding in ("utf-16-le", "utf-16-be"):
             try:
                 utf16_text = raw.decode(encoding)
