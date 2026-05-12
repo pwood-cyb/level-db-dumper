@@ -7,6 +7,54 @@ from pathlib import Path
 MAGIC = 0xDB4775248B80FB57
 
 
+def _escape_controls(text: str) -> str:
+    escaped: list[str] = []
+    for char in text:
+        code = ord(char)
+        if char == "\\":
+            escaped.append("\\\\")
+        elif char == "\n":
+            escaped.append("\\n")
+        elif char == "\r":
+            escaped.append("\\r")
+        elif char == "\t":
+            escaped.append("\\t")
+        elif 0 <= code < 32 or code == 127:
+            escaped.append(f"\\x{code:02x}")
+        else:
+            escaped.append(char)
+    return "".join(escaped)
+
+
+def _is_mostly_printable(text: str) -> bool:
+    if not text:
+        return True
+    printable_count = 0
+    for char in text:
+        code = ord(char)
+        if char in {"\n", "\r", "\t"} or code >= 32 and code != 127:
+            printable_count += 1
+    return printable_count / len(text) >= 0.7
+
+
+def _escape_binary(raw: bytes) -> str:
+    escaped: list[str] = []
+    for byte in raw:
+        if byte == 92:
+            escaped.append("\\\\")
+        elif byte == 10:
+            escaped.append("\\n")
+        elif byte == 13:
+            escaped.append("\\r")
+        elif byte == 9:
+            escaped.append("\\t")
+        elif 32 <= byte < 127:
+            escaped.append(chr(byte))
+        else:
+            escaped.append(f"\\x{byte:02x}")
+    return "".join(escaped)
+
+
 def _decode_varint(data: bytes, offset: int) -> tuple[int, int]:
     result = 0
     shift = 0
@@ -23,7 +71,27 @@ def _decode_varint(data: bytes, offset: int) -> tuple[int, int]:
 
 
 def _to_text(raw: bytes) -> str:
-    return raw.decode("utf-8", errors="backslashreplace")
+    if not raw:
+        return ""
+
+    null_ratio = raw.count(0) / len(raw)
+    if len(raw) % 2 == 0 and null_ratio >= 0.2:
+        for encoding in ("utf-16-le", "utf-16-be"):
+            try:
+                utf16_text = raw.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+            if _is_mostly_printable(utf16_text):
+                return _escape_controls(utf16_text)
+
+    try:
+        utf8_text = raw.decode("utf-8")
+    except UnicodeDecodeError:
+        return _escape_binary(raw)
+
+    if _is_mostly_printable(utf8_text):
+        return _escape_controls(utf8_text)
+    return _escape_binary(raw)
 
 
 def _parse_block_entries(block: bytes) -> list[tuple[bytes, bytes]]:
