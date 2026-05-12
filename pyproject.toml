@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling>=1.27.0"]
+build-backend = "hatchling.build"
+
+[project]
+name = "level-db-dumper"
+version = "0.1.0"
+description = "LevelDB .ldb file dumper"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "level-db-dumper contributors" }]
+
+[project.scripts]
+level-db-dumper = "level_db_dumper.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/level_db_dumper"]
