@@ -23,3 +23,7 @@ After install, run it as:
 ```bash
 uv tool run level-db-dumper /path/to/db --format toml --output dump.toml
 ```
+
+## Future work
+
+- **Streaming output** — replace the in-memory `dict` accumulation with an iterator-based pipeline so that multi-GB databases can be dumped without loading all key/value pairs into memory at once.
