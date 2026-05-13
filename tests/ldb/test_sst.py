@@ -41,3 +41,17 @@ class SSTEntryReaderTests(unittest.TestCase):
         data = make_sst([(b"k", b"v", 42, False)])
         entries = list(read_entries(data))
         self.assertEqual(entries[0][2], 42)
+
+    def test_crc_mismatch_skips_block_with_warning(self) -> None:
+        data = bytearray(make_sst([(b"key", b"value", 1, False)]))
+        # Corrupt the CRC of the data block (bytes 1-4 of the 5-byte trailer after the data block content)
+        # The data block trailer starts at offset = data_block_content_size.
+        # Flip some bytes in the middle of the file to corrupt a block CRC.
+        data[10] ^= 0xFF
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter("always")
+            entries = list(read_entries(bytes(data)))
+        self.assertTrue(any("CRC" in str(w.message) for w in caught))
+
+    def test_undersized_file_returns_empty(self) -> None:
+        self.assertEqual(list(read_entries(b"\x00" * 47)), [])

@@ -46,7 +46,17 @@ def _read_block(file_data: bytes, offset: int, size: int) -> bytes | None:
         try:
             return snappy.decompress(block_content)
         except Exception:
+            warnings.warn(
+                f"Failed to decompress snappy block at offset {offset}",
+                RuntimeWarning,
+                stacklevel=3,
+            )
             return None
+    warnings.warn(
+        f"Unknown compression type {compression_type} in SST block at offset {offset}, skipping",
+        RuntimeWarning,
+        stacklevel=3,
+    )
     return None
 
 

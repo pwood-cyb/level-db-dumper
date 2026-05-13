@@ -40,6 +40,8 @@ def make_sst(pairs: list[tuple[bytes, bytes, int, bool]]) -> bytes:
 
     pairs: list of (user_key, value, seq_num, is_deletion)
     """
+    if not pairs:
+        raise ValueError("make_sst requires at least one entry")
     entries = []
     for user_key, value, seq_num, is_deletion in pairs:
         vtype = 0 if is_deletion else 1
