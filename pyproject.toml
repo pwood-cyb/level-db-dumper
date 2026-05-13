@@ -16,3 +16,11 @@ level-db-dumper = "level_db_dumper.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/level_db_dumper"]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+]
