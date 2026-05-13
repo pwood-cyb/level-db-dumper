@@ -17,6 +17,8 @@ def decode_varint(data: bytes, offset: int) -> tuple[int, int]:
 
 
 def encode_varint(value: int) -> bytes:
+    if value < 0:
+        raise ValueError(f"varint value must be non-negative, got {value}")
     parts = []
     while value > 0x7F:
         parts.append((value & 0x7F) | 0x80)
