@@ -1,5 +1,5 @@
 """LevelDB dumper package."""
 
-from .dumper import dump_directory
+from .reader import dump_directory
 
 __all__ = ["dump_directory"]

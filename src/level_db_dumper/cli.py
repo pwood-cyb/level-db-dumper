@@ -4,7 +4,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from .dumper import dump_directory
+from .reader import dump_directory
 from .formats import serialize
 
 
