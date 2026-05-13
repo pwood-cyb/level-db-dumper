@@ -1,0 +1,63 @@
+# syntax=docker/dockerfile:1
+# Tests level-db-dumper against a specific LevelDB version built from source.
+# Build arg LEVELDB_VERSION selects the GitHub tag (e.g. 1.20, 1.22, 1.23).
+ARG LEVELDB_VERSION=1.23
+
+# ── Stage 1: build LevelDB from source ──────────────────────────────────────
+FROM ubuntu:24.04 AS leveldb-builder
+ARG LEVELDB_VERSION
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        cmake \
+        build-essential \
+        git \
+        libsnappy-dev \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+RUN git clone --depth 1 --branch "${LEVELDB_VERSION}" \
+        https://github.com/google/leveldb.git . \
+    && git submodule update --init --recursive --depth 1
+
+RUN cmake -S . -B build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DBUILD_SHARED_LIBS=ON \
+        -DLEVELDB_BUILD_TESTS=OFF \
+        -DLEVELDB_BUILD_BENCHMARKS=OFF \
+    && cmake --build build --parallel "$(nproc)" \
+    && cmake --install build --prefix /leveldb-install
+
+# ── Stage 2: test runner ─────────────────────────────────────────────────────
+FROM ubuntu:24.04
+ARG LEVELDB_VERSION
+
+LABEL org.opencontainers.image.description="level-db-dumper tests against LevelDB ${LEVELDB_VERSION}"
+
+# LevelDB headers + shared library (built above)
+COPY --from=leveldb-builder /leveldb-install /usr/local
+
+# Python, build toolchain for plyvel/python-snappy; snappy runtime for LevelDB
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 \
+        python3-dev \
+        build-essential \
+        libsnappy-dev \
+        pkg-config \
+        curl \
+        ca-certificates \
+    && ldconfig \
+    && rm -rf /var/lib/apt/lists/*
+
+# uv
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
+
+WORKDIR /app
+COPY . .
+
+# Project deps (pytest) + plyvel (compiles C extension against /usr/local LevelDB) + python-snappy
+RUN uv sync && uv pip install plyvel python-snappy
+
+# Generate binary fixtures with this LevelDB version, then run the full test suite
+CMD ["sh", "-c", "uv run python scripts/generate_fixtures.py && uv run pytest tests/ -v"]
