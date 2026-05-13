@@ -136,14 +136,21 @@ def dump_directory(directory: str | Path) -> dict[str, str]:
             wal_path = base / f"{manifest_info.log_number:06d}.log"
             if wal_path.exists():
                 wal_data = wal_path.read_bytes()
-                sources.append(
+                sources.append([
                     entry
                     for record in read_records(wal_data)
                     for entry in _decode_write_batch(record)
-                )
+                ])
     else:
         for ldb_file in sorted(base.rglob("*.ldb")):
             sources.append(read_sst_entries(ldb_file.read_bytes()))
+        for log_file in sorted(base.rglob("*.log")):
+            log_data = log_file.read_bytes()
+            sources.append([
+                entry
+                for record in read_records(log_data)
+                for entry in _decode_write_batch(record)
+            ])
 
     merged = merge(sources)
     return {_to_text(k): _to_text(v) for k, v in merged.items()}

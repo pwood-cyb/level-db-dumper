@@ -47,8 +47,17 @@ def _parse_version_edit(data: bytes) -> _VersionEdit:
             klen2, pos = decode_varint(data, pos)
             pos += klen2  # skip largest_key bytes
             edit.new_files.append((level, fnum, size))
+        elif tag in (3, 4, 9):  # NextFileNumber, LastSequence, PrevLogNumber: single varint
+            _, pos = decode_varint(data, pos)
+        elif tag == 1:  # Comparator: length-prefixed string
+            slen, pos = decode_varint(data, pos)
+            pos += slen
+        elif tag == 5:  # CompactPointer: varint level + length-prefixed internal key
+            _, pos = decode_varint(data, pos)  # skip level
+            klen, pos = decode_varint(data, pos)
+            pos += klen
         else:
-            break  # unknown tag — stop parsing this edit
+            break  # truly unknown tag — cannot determine payload size
     return edit
 
 

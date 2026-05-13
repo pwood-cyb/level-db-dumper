@@ -91,3 +91,19 @@ class DumpDirectoryTests(unittest.TestCase):
                 warnings.simplefilter("always")
                 result = dump_directory(tmp)
         self.assertIn("fb", result)
+
+    def test_fallback_includes_wal_entries(self) -> None:
+        """Fallback path (no MANIFEST) must also scan .log files so unflushed WAL
+        entries are not silently dropped in the corruption scenario."""
+        sst = make_sst([(b"sst_key", b"sst_val", 1, False)])
+        batch = _make_write_batch(10, [(b"wal_key", b"wal_val")])
+        wal = make_log_record(batch)
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "000001.ldb").write_bytes(sst)
+            (Path(tmp) / "000002.log").write_bytes(wal)
+            with warnings.catch_warnings(record=True):
+                warnings.simplefilter("always")
+                result = dump_directory(tmp)
+        self.assertIn("sst_key", result)
+        self.assertIn("wal_key", result)
+        self.assertEqual(result["wal_key"], "wal_val")
