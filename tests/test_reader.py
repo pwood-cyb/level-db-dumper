@@ -37,6 +37,32 @@ class ToTextTests(unittest.TestCase):
     def test_empty_bytes(self) -> None:
         self.assertEqual(_to_text(b""), "")
 
+    def test_utf16le_decoded(self) -> None:
+        # b"h\x00i\x00" is UTF-16LE "hi" — consistent alternating-null pattern
+        self.assertEqual(_to_text("hi".encode("utf-16-le")), "hi")
+
+    def test_utf16be_decoded(self) -> None:
+        self.assertEqual(_to_text("hi".encode("utf-16-be")), "hi")
+
+    def test_binary_with_scattered_nulls_not_decoded_as_utf16(self) -> None:
+        # Binary key with some null bytes but no consistent alternating pattern:
+        # was previously misidentified as UTF-16LE, producing garbage kanji.
+        raw = bytes([0x0b, 0x00, 0x00, 0xc8, 0x12, 0x00, 0x70, 0x00])
+        result = _to_text(raw)
+        # Must not contain multi-byte Unicode (kanji etc.); only \xNN escapes or ASCII
+        self.assertFalse(any(ord(c) > 127 for c in result),
+                         f"Got non-ASCII in result: {result!r}")
+
+    def test_binary_starting_with_control_char_not_decoded_as_utf8(self) -> None:
+        # Chromium IndexedDB keys start with a type byte (0x0b VT or 0x0c FF).
+        # Those bytes form valid UTF-8 but are non-whitespace control chars → binary.
+        # Previously decoded as Latin Extended / Cyrillic garbage (e.g. "āЂĭ19:...").
+        raw = bytes([0x0c, 0xc4, 0x81, 0xd0, 0x82, 0x31, 0x39, 0x3a])  # \x0c + valid UTF-8
+        result = _to_text(raw)
+        self.assertFalse(any(ord(c) > 127 for c in result),
+                         f"Got non-ASCII in result: {result!r}")
+        self.assertIn("\\x0c", result)
+
 
 class DumpDirectoryTests(unittest.TestCase):
     def _write_db(

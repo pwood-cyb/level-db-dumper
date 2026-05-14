@@ -12,7 +12,40 @@ from .ldb.merge import merge
 from .ldb.sst import read_entries as read_sst_entries
 
 PRINTABLE_RATIO_THRESHOLD = 0.7
-UTF16_NULL_RATIO_THRESHOLD = 0.2
+# Fraction of high-byte positions (odd for LE, even for BE) that must be null
+# for a byte string to be treated as UTF-16 ASCII-range text.  Random binary
+# data with scattered null bytes will not meet this threshold.
+_UTF16_NULL_PATTERN_THRESHOLD = 0.7
+# Fraction of low-byte positions that must NOT be null (prevents symmetric data
+# from passing both LE and BE checks simultaneously).
+_UTF16_NONNULL_LOW_THRESHOLD = 0.2
+
+
+def _looks_like_utf16le(raw: bytes) -> bool:
+    """Return True if *raw* has the alternating-null pattern of UTF-16LE text.
+
+    In UTF-16LE, ASCII characters are stored as (char, 0x00) pairs, so
+    odd-indexed bytes are overwhelmingly null.  Random binary data, or binary
+    data with embedded-string segments, does not exhibit this uniformly.
+    """
+    if len(raw) < 4 or len(raw) % 2 != 0:
+        return False
+    pairs = len(raw) // 2
+    odd_nulls  = sum(1 for i in range(1, len(raw), 2) if raw[i] == 0)
+    even_nulls = sum(1 for i in range(0, len(raw), 2) if raw[i] == 0)
+    return (odd_nulls  >= pairs * _UTF16_NULL_PATTERN_THRESHOLD and
+            even_nulls <= pairs * _UTF16_NONNULL_LOW_THRESHOLD)
+
+
+def _looks_like_utf16be(raw: bytes) -> bool:
+    """Return True if *raw* has the alternating-null pattern of UTF-16BE text."""
+    if len(raw) < 4 or len(raw) % 2 != 0:
+        return False
+    pairs = len(raw) // 2
+    even_nulls = sum(1 for i in range(0, len(raw), 2) if raw[i] == 0)
+    odd_nulls  = sum(1 for i in range(1, len(raw), 2) if raw[i] == 0)
+    return (even_nulls >= pairs * _UTF16_NULL_PATTERN_THRESHOLD and
+            odd_nulls  <= pairs * _UTF16_NONNULL_LOW_THRESHOLD)
 
 
 def _escape_controls(text: str) -> str:
@@ -40,7 +73,11 @@ def _is_mostly_printable(text: str) -> bool:
     printable_count = 0
     for char in text:
         code = ord(char)
-        if char in {"\n", "\r", "\t"} or (code >= 32 and code != 127):
+        if char in {"\n", "\r", "\t"}:
+            printable_count += 1
+        elif code < 32 or code == 127:
+            return False  # non-whitespace control char → binary, not text
+        else:
             printable_count += 1
     return printable_count / len(text) >= PRINTABLE_RATIO_THRESHOLD
 
@@ -67,15 +104,17 @@ def _to_text(raw: bytes) -> str:
     if not raw:
         return ""
 
-    null_ratio = raw.count(0) / len(raw)
-    if len(raw) % 2 == 0 and null_ratio >= UTF16_NULL_RATIO_THRESHOLD:
-        for encoding in ("utf-16-le", "utf-16-be"):
+    for encoding, checker in (
+        ("utf-16-le", _looks_like_utf16le),
+        ("utf-16-be", _looks_like_utf16be),
+    ):
+        if checker(raw):
             try:
-                utf16_text = raw.decode(encoding)
+                text = raw.decode(encoding)
             except UnicodeDecodeError:
                 continue
-            if _is_mostly_printable(utf16_text):
-                return _escape_controls(utf16_text)
+            if _is_mostly_printable(text):
+                return _escape_controls(text)
 
     try:
         utf8_text = raw.decode("utf-8")
