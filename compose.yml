@@ -1,0 +1,26 @@
+# Run the test suite against specific LevelDB versions.
+#
+# All versions:   docker compose up --build
+# One version:    docker compose run --rm --build test-leveldb-1.23
+# Build only:     docker compose build
+services:
+  test-leveldb-1.20:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        LEVELDB_VERSION: "1.20"
+
+  test-leveldb-1.22:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        LEVELDB_VERSION: "1.22"
+
+  test-leveldb-1.23:
+    build:
+      context: .
+      dockerfile: Dockerfile.test
+      args:
+        LEVELDB_VERSION: "1.23"
